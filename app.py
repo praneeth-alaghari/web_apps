@@ -45,22 +45,27 @@ def categorize_merchant(merchant):
     return 'Other'
 
 def process_dataframe(df):
+    logger.info(f"Processing dataframe with columns: {list(df.columns)}")
     # Standardize column names
-    df.columns = [str(c).strip().lower() for c in df.columns]
+    df.columns = [str(c).strip().lower().replace('\n', ' ').replace('  ', ' ') for c in df.columns]
     
-    # Try to find standard columns
-    date_col = next((c for c in df.columns if 'date' in c), None)
-    desc_col = next((c for c in df.columns if any(x in c for x in ['desc', 'particulars', 'narration', 'merchant', 'details'])), None)
+    # Try to find standard columns with fuzzy matching
+    date_col = next((c for c in df.columns if any(x in c for x in ['date', 'dat e', 'txn date', 'trans date'])), None)
+    desc_col = next((c for c in df.columns if any(x in c for x in ['desc', 'details', 'particulars', 'narration', 'merchant'])), None)
     
-    # Amount columns can be single amount or split debit/credit
-    debit_col = next((c for c in df.columns if 'debit' in c or 'withdrawal' in c or 'out' in c), None)
-    credit_col = next((c for c in df.columns if 'credit' in c or 'deposit' in c or 'in' in c), None)
-    amount_col = next((c for c in df.columns if 'amount' in c), None)
+    # Amount columns
+    debit_col = next((c for c in df.columns if any(x in c for x in ['debit', 'withdrawal', 'out', 'paid'])), None)
+    credit_col = next((c for c in df.columns if any(x in c for x in ['credit', 'deposit', 'in', 'received'])), None)
+    
+    # Handle the messy 'type amount' case found in logs
+    amount_col = next((c for c in df.columns if 'amount' in c or 'amou' in c or 'value' in c), None)
     
     if not date_col or not desc_col:
-        raise ValueError("Could not find standard Date and Description columns in the file.")
+        logger.error(f"Failed to find Date or Description. Headers found: {list(df.columns)}")
+        raise ValueError(f"Could not find standard Date and Description columns. Found: {list(df.columns)}")
         
     if not (debit_col and credit_col) and not amount_col:
+        logger.error(f"Failed to find Amount/Debit/Credit. Headers found: {list(df.columns)}")
         raise ValueError("Could not find standard Amount or Debit/Credit columns in the file.")
 
     processed = pd.DataFrame()
