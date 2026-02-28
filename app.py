@@ -130,9 +130,24 @@ def extract_tables_from_pdf(file_stream):
             logger.info(f"PDF opened successfully. Total pages: {len(pdf.pages)}")
             for i, page in enumerate(pdf.pages):
                 logger.info(f"Processing page {i+1}...")
-                tables = page.extract_tables()
-                logger.info(f"Found {len(tables)} potential tables on page {i+1}")
                 
+                # Use strategy='text' for PDFs that don't have visible table borders (very common in bank statements)
+                table_settings = {
+                    "vertical_strategy": "text", 
+                    "horizontal_strategy": "text",
+                    "snap_y_tolerance": 5,
+                    "intersection_x_tolerance": 15
+                }
+                
+                tables = page.extract_tables(table_settings=table_settings)
+                logger.info(f"Found {len(tables)} potential tables on page {i+1} using text strategy")
+                
+                if not tables:
+                    # Try default strategy as fallback
+                    tables = page.extract_tables()
+                    if tables:
+                        logger.info(f"Found {len(tables)} potential tables on page {i+1} using default strategy")
+
                 for j, table in enumerate(tables):
                     if not table or len(table) < 2:
                         logger.debug(f"Skipping empty or too small table {j+1} on page {i+1}")
