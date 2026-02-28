@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analysis Result - Statement Analyzer</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary: #4361ee;
+            --secondary: #3f37c9;
+            --success: #1abc9c;
+            --danger: #e74c3c;
+            --bg: #f4f7f6;
+            --surface: #ffffff;
+            --text-main: #2b2d42;
+            --text-muted: #8d99ae;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg);
+            color: var(--text-main);
+            margin: 0;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #e0e4e8;
+        }
+
+        .header h1 {
+            color: var(--primary);
+            margin: 0;
+            font-size: 2rem;
+        }
+
+        .btn-back {
+            text-decoration: none;
+            background-color: var(--surface);
+            color: var(--primary);
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: 600;
+            border: 2px solid var(--primary);
+            transition: all 0.2s;
+        }
+
+        .btn-back:hover {
+            background-color: var(--primary);
+            color: white;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .card {
+            background-color: var(--surface);
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
+        }
+
+        .card h3 {
+            margin-top: 0;
+            color: var(--text-muted);
+            font-size: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .card .value {
+            font-size: 2.2rem;
+            font-weight: 700;
+            margin: 10px 0;
+        }
+
+        .value.debit {
+            color: var(--danger);
+        }
+
+        .value.credit {
+            color: var(--success);
+        }
+
+        .list-items {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .list-items li {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #f0f0f0;
+            font-weight: 500;
+        }
+
+        .list-items li:last-child {
+            border-bottom: none;
+        }
+
+        .list-items .amount {
+            color: var(--text-main);
+            font-weight: 700;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+            width: 100%;
+        }
+
+        .chart-card {
+            grid-column: span 2;
+        }
+
+        @media (max-width: 768px) {
+            .chart-card {
+                grid-column: span 1;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Analysis Report</h1>
+            <a href="/" class="btn-back">← Upload Another</a>
+        </div>
+
+        <div class="grid">
+            <!-- Summary Stats -->
+            <div class="card">
+                <h3>Total Debits (Spent)</h3>
+                <div class="value debit">₹ {{ "{:,.2f}".format(result.total_debit) }}</div>
+            </div>
+
+            <div class="card">
+                <h3>Total Credits (Income)</h3>
+                <div class="value credit">₹ {{ "{:,.2f}".format(result.total_credit) }}</div>
+            </div>
+
+            <!-- Top Merchants -->
+            <div class="card">
+                <h3>Top 5 Merchants</h3>
+                <ul class="list-items">
+                    {% for merchant, amount in result.top_merchants.items() %}
+                    <li>
+                        <span>{{ merchant[:25] }}{% if merchant|length > 25 %}...{% endif %}</span>
+                        <span class="amount">₹ {{ "{:,.2f}".format(amount) }}</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+
+        <div class="grid">
+            <!-- Categories Chart -->
+            <div class="card">
+                <h3>Category Breakdown</h3>
+                <div class="chart-container">
+                    <canvas id="categoryChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Time Chart -->
+            <div class="card chart-card">
+                <h3>{{ result.time_label }}</h3>
+                <div class="chart-container">
+                    <canvas id="timeChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Data injected from Flask
+        const categoryData = {{ result.category_breakdown | tojson | safe }};
+        const timeData = {{ result.time_spends | tojson | safe }};
+
+        // Colors for charts
+        const colors = [
+            '#4361ee', '#3f37c9', '#4cc9f0', '#7209b7', '#f72585', '#ef476f', '#ffd166', '#06d6a0'
+        ];
+
+        // 1. Render Category Pie Chart
+        const ctxCategory = document.getElementById('categoryChart').getContext('2d');
+        new Chart(ctxCategory, {
+            type: 'doughnut',
+            data: {
+                labels: Object.keys(categoryData),
+                datasets: [{
+                    data: Object.values(categoryData),
+                    backgroundColor: colors,
+                    hoverOffset: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'right' }
+                }
+            }
+        });
+
+        // 2. Render Time Bar Chart
+        const ctxTime = document.getElementById('timeChart').getContext('2d');
+        new Chart(ctxTime, {
+            type: 'bar',
+            data: {
+                labels: Object.keys(timeData),
+                datasets: [{
+                    label: 'Amount Spent',
+                    data: Object.values(timeData),
+                    backgroundColor: '#4361ee',
+                    borderRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: { beginAtZero: true }
+                }
+            }
+        });
+    </script>
+</body>
+
+</html>

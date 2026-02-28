@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Statement Analyzer</title>
+    <style>
+        :root {
+            --primary: #4361ee;
+            --secondary: #3f37c9;
+            --success: #4cc9f0;
+            --bg: #f8f9fa;
+            --surface: #ffffff;
+            --text-main: #2b2d42;
+            --text-muted: #8d99ae;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text-main);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            background-color: var(--surface);
+            padding: 3rem;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+            max-width: 500px;
+            width: 100%;
+            text-align: center;
+        }
+
+        h1 {
+            color: var(--primary);
+            margin-bottom: 0.5rem;
+            font-size: 2.2rem;
+            font-weight: 700;
+        }
+
+        p {
+            color: var(--text-muted);
+            margin-bottom: 2rem;
+            line-height: 1.5;
+        }
+
+        .upload-area {
+            border: 2px dashed #e0e4e8;
+            border-radius: 12px;
+            padding: 2.5rem;
+            position: relative;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background-color: #fafbfe;
+            margin-bottom: 1.5rem;
+        }
+
+        .upload-area:hover {
+            border-color: var(--primary);
+            background-color: #f0f4ff;
+        }
+
+        .upload-icon {
+            font-size: 3rem;
+            color: var(--primary);
+            margin-bottom: 1rem;
+            display: block;
+        }
+
+        input[type="file"] {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        .btn {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 14px 28px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            width: 100%;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(67, 97, 238, 0.4);
+            background-color: var(--secondary);
+        }
+
+        .alert {
+            background-color: #ffe5d9;
+            color: #d62828;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            font-weight: 500;
+        }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <div class="container">
+        <h1>Statement Analyzer</h1>
+        <p>Instantly extract and visualize spending habits from your bank statements. Upload a PDF or CSV file below.
+        </p>
+
+        {% with messages = get_flashed_messages() %}
+        {% if messages %}
+        {% for message in messages %}
+        <div class="alert">{{ message }}</div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        <form action="/analyze" method="post" enctype="multipart/form-data" id="uploadForm">
+            <div class="upload-area" id="dropZone">
+                <span class="upload-icon">📄</span>
+                <strong id="uploadText">Click or drag to upload</strong>
+                <p style="margin: 0.5rem 0 0; font-size: 0.9em;">Supports .PDF and .CSV files</p>
+                <input type="file" name="statement_file" id="fileInput" accept=".pdf,.csv" required>
+            </div>
+
+            <div id="loadingState" style="display: none; margin-bottom: 20px;">
+                <div class="spinner"
+                    style="margin: 0 auto 10px; width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid var(--primary); border-radius: 50%; animation: spin 1s linear infinite;">
+                </div>
+                <strong style="color: var(--primary);">Analyzing statement...</strong>
+                <p style="font-size: 0.9em; margin-top: 5px;">This may take a moment depending on the file size.</p>
+                <style>
+                    @keyframes spin {
+                        0% {
+                            transform: rotate(0deg);
+                        }
+
+                        100% {
+                            transform: rotate(360deg);
+                        }
+                    }
+                </style>
+            </div>
+
+            <button type="submit" class="btn" id="submitBtn">Analyze Statement</button>
+        </form>
+    </div>
+
+    <script>
+        const fileInput = document.getElementById('fileInput');
+        const uploadText = document.getElementById('uploadText');
+        const uploadForm = document.getElementById('uploadForm');
+        const submitBtn = document.getElementById('submitBtn');
+        const loadingState = document.getElementById('loadingState');
+
+        // Show selected filename
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                uploadText.textContent = 'Selected: ' + e.target.files[0].name;
+                uploadText.style.color = 'var(--success)';
+            } else {
+                uploadText.textContent = 'Click or drag to upload';
+                uploadText.style.color = 'inherit';
+            }
+        });
+
+        // Show loading state on submit
+        uploadForm.addEventListener('submit', () => {
+            submitBtn.style.display = 'none';
+            loadingState.style.display = 'block';
+        });
+    </script>
+</body>
+
+</html>
