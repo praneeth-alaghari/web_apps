@@ -124,21 +124,51 @@ def process_dataframe(df):
 
 def extract_tables_from_pdf(file_stream):
     dfs = []
-    with pdfplumber.open(file_stream) as pdf:
-        for page in pdf.pages:
-            tables = page.extract_tables()
-            for table in tables:
-                if len(table) > 1:
+    logger.info("Starting PDF table extraction...")
+    try:
+        with pdfplumber.open(file_stream) as pdf:
+            logger.info(f"PDF opened successfully. Total pages: {len(pdf.pages)}")
+            for i, page in enumerate(pdf.pages):
+                logger.info(f"Processing page {i+1}...")
+                tables = page.extract_tables()
+                logger.info(f"Found {len(tables)} potential tables on page {i+1}")
+                
+                for j, table in enumerate(tables):
+                    if not table or len(table) < 2:
+                        logger.debug(f"Skipping empty or too small table {j+1} on page {i+1}")
+                        continue
+                    
+                    # Convert to DF to peek at columns
+                    headers = [str(c).strip().lower() for c in table[0] if c is not None]
+                    logger.info(f"Table {j+1} headers: {headers}")
+                    
                     df = pd.DataFrame(table[1:], columns=table[0])
+                    
                     # Basic check to see if it looks like a transaction table
-                    col_str = " ".join([str(c).lower() for c in df.columns])
-                    if 'date' in col_str and ('amount' in col_str or 'debit' in col_str):
+                    col_str = " ".join(headers)
+                    date_keywords = ['date', 'txn', 'trans']
+                    val_keywords = ['amount', 'debit', 'withdrawal', 'credit', 'deposit', 'balance', 'out', 'in', 'value']
+                    
+                    has_date = any(k in col_str for k in date_keywords)
+                    has_val = any(k in col_str for k in val_keywords)
+                    
+                    if has_date and has_val:
+                        logger.info(f"Valid transaction table found on page {i+1}, table {j+1}")
                         dfs.append(df)
+                    else:
+                        logger.warning(f"Table {j+1} on page {i+1} rejected. has_date: {has_date}, has_val: {has_val}")
+
+    except Exception as e:
+        logger.error(f"Critical error during pdfplumber processing: {str(e)}", exc_info=True)
+        raise ValueError(f"PDF library error: {str(e)}")
     
     if not dfs:
-        raise ValueError("No valid transaction tables found in PDF.")
+        logger.error("No valid transaction tables were identified across all pages.")
+        raise ValueError("No valid transaction tables found in PDF. Check the logs for detected header names.")
     
-    return pd.concat(dfs, ignore_index=True)
+    combined_df = pd.concat(dfs, ignore_index=True)
+    logger.info(f"Successfully combined {len(dfs)} tables. Total rows: {len(combined_df)}")
+    return combined_df
 
 @app.route("/", methods=["GET"])
 def index():
