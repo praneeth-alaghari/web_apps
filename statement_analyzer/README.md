@@ -2,7 +2,10 @@
 
 A smart, web-based financial statement parser that extracts transactions from **bank statements** (PDF & CSV), categorizes spending, and generates **interactive visual reports** — all in seconds, entirely in-browser.
 
+Note : There is no use of LLMs or AI in this project. This project is entirely build using Vibe coding, hence may prone to errors in some edge cases.  
+
 > **Why this exists:** Manually reviewing bank statements is tedious and error-prone. This tool automates the process with intelligent parsing strategies that handle everything from clean CSV exports to messy, unstructured PDF extractions.
+
 
 ---
 
