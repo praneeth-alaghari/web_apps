@@ -129,11 +129,11 @@ Transactions are categorized using **keyword matching** against merchant descrip
 
 | Source | Format | Status |
 |---|---|---|
-| HDFC Bank | CSV | ✅ Tested |
+| PhonePe | PDF | ✅ Verified (tested with real statements) |
+| HDFC Bank | CSV | ✅ Supported |
 | SBI | CSV | ✅ Supported |
 | ICICI Bank | CSV | ✅ Supported |
 | Axis Bank | CSV | ✅ Supported |
-| PhonePe | PDF | ✅ Tested |
 | Google Pay | PDF | ✅ Supported |
 | Paytm | PDF | ✅ Supported |
 | Generic bank exports | CSV/PDF | ✅ Auto-detected |
