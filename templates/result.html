@@ -28,7 +28,8 @@
         }
 
         .container {
-            max-width: 1200px;
+            max-width: 1400px;
+            width: 95%;
             margin: 0 auto;
         }
 
@@ -132,10 +133,83 @@
             grid-column: span 2;
         }
 
-        @media (max-width: 768px) {
-            .chart-card {
-                grid-column: span 1;
-            }
+        .transactions-card {
+            margin-top: 2.5rem;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .sortable {
+            cursor: pointer;
+            position: relative;
+            padding-right: 25px !important;
+            user-select: none;
+            transition: background-color 0.2s;
+        }
+
+        .sortable:hover {
+            background-color: #edf2f7 !important;
+        }
+
+        .sortable::after {
+            content: '↕';
+            position: absolute;
+            right: 8px;
+            color: var(--text-muted);
+            opacity: 0.5;
+            font-size: 0.8rem;
+        }
+
+        .sortable.asc::after {
+            content: '↑';
+            opacity: 1;
+            color: var(--primary);
+        }
+
+        .sortable.desc::after {
+            content: '↓';
+            opacity: 1;
+            color: var(--primary);
+        }
+
+        .transactions-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+
+        .transactions-table th,
+        .transactions-table td {
+            text-align: left;
+            padding: 12px;
+            border-bottom: 1px solid #edf2f7;
+        }
+
+        .transactions-table th {
+            background-color: #f8fafc;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .transactions-table td.debit {
+            color: var(--danger);
+            font-weight: 600;
+        }
+
+        .transactions-table td.credit {
+            color: var(--success);
+            font-weight: 600;
+        }
+
+        .badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background-color: #f0f4f8;
+            color: var(--primary);
         }
     </style>
 </head>
@@ -183,11 +257,49 @@
             </div>
 
             <!-- Time Chart -->
-            <div class="card chart-card">
+            <div class="card">
                 <h3>{{ result.time_label }}</h3>
                 <div class="chart-container">
                     <canvas id="timeChart"></canvas>
                 </div>
+            </div>
+        </div>
+
+        <!-- Detailed Transactions List -->
+        <div class="card transactions-card">
+            <div
+                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid #edf2f7; padding-bottom: 1rem;">
+                <h3 style="margin: 0;">Verified Transactions Log</h3>
+                <span class="badge" style="background: #e2e8f0;">{{ result.transactions|length }} entries
+                    detected</span>
+            </div>
+            <div style="overflow-x: auto;">
+                <table class="transactions-table" id="txnTable">
+                    <thead>
+                        <tr>
+                            <th style="width: 50px;">#</th>
+                            <th class="sortable" onclick="sortTable(1)">Date</th>
+                            <th class="sortable" onclick="sortTable(2)">Description</th>
+                            <th class="sortable" onclick="sortTable(3)">Category</th>
+                            <th class="sortable" onclick="sortTable(4)">Debit</th>
+                            <th class="sortable" onclick="sortTable(5)">Credit</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for txn in result.transactions %}
+                        <tr>
+                            <td style="color: var(--text-muted); font-size: 0.85rem;">{{ loop.index }}</td>
+                            <td style="white-space: nowrap;">{{ txn.Date }}</td>
+                            <td style="max-width: 500px; word-break: break-all;">{{ txn.Description }}</td>
+                            <td><span class="badge">{{ txn.Category }}</span></td>
+                            <td class="debit" data-val="{{ txn.Debit }}">{% if txn.Debit > 0 %}₹ {{
+                                "{:,.2f}".format(txn.Debit) }}{% else %}-{% endif %}</td>
+                            <td class="credit" data-val="{{ txn.Credit }}">{% if txn.Credit > 0 %}₹ {{
+                                "{:,.2f}".format(txn.Credit) }}{% else %}-{% endif %}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
@@ -244,6 +356,53 @@
                 }
             }
         });
+
+        // 3. Table Sorting Logic
+        let currentSortCol = -1;
+        let isAsc = true;
+
+        function sortTable(colIdx) {
+            const table = document.getElementById("txnTable");
+            const tbody = table.querySelector("tbody");
+            const rows = Array.from(tbody.querySelectorAll("tr"));
+            const headers = table.querySelectorAll("th");
+
+            // Update UI
+            if (currentSortCol === colIdx) {
+                isAsc = !isAsc;
+            } else {
+                isAsc = true;
+                if (currentSortCol !== -1) headers[currentSortCol].classList.remove('asc', 'desc');
+            }
+
+            headers[colIdx].classList.remove('asc', 'desc');
+            headers[colIdx].classList.add(isAsc ? 'asc' : 'desc');
+            currentSortCol = colIdx;
+
+            const sortedRows = rows.sort((a, b) => {
+                let aVal = a.cells[colIdx].innerText.trim();
+                let bVal = b.cells[colIdx].innerText.trim();
+
+                // Special handling for amounts (Debit/Credit) using data-val
+                if (colIdx === 4 || colIdx === 5) {
+                    aVal = parseFloat(a.cells[colIdx].getAttribute('data-val')) || 0;
+                    bVal = parseFloat(b.cells[colIdx].getAttribute('data-val')) || 0;
+                    return isAsc ? aVal - bVal : bVal - aVal;
+                }
+
+                // Handle Date sorting
+                if (colIdx === 1) {
+                    return isAsc ? new Date(aVal) - new Date(bVal) : new Date(bVal) - new Date(aVal);
+                }
+
+                // Default string sort
+                return isAsc ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+            });
+
+            // Re-render table
+            tbody.innerHTML = "";
+            sortedRows.forEach(row => tbody.appendChild(row));
+        }
     </script>
 </body>
 
