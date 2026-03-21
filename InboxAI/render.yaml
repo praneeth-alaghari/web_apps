@@ -6,6 +6,7 @@ services:
     plan: free # Can run on free tier, will sleep after inactivity
     dockerfilePath: Dockerfile
     dockerContext: .
+    rootDir: InboxAI
     envVars:
       - key: QDRANT_HOST
         value: qdrant-db # Connects to the Qdrant service listed below
