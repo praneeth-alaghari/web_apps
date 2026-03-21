@@ -13,7 +13,13 @@ COLLECTION_NAME = "inbox_training"
 from services.categorizer import is_sensitive
 EMBEDDING_MODEL = os.environ.get("EMBEDDING_MODEL", "text-embedding-3-small")
 
-client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
+QDRANT_URL = os.environ.get("QDRANT_URL")
+QDRANT_API_KEY = os.environ.get("QDRANT_API_KEY")
+
+if QDRANT_URL and QDRANT_API_KEY:
+    client = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY)
+else:
+    client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
 openai_client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
 def init_db():
