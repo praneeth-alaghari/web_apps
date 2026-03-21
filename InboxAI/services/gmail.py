@@ -29,37 +29,39 @@ def fetch_emails():
     ).execute()
     messages = results.get("messages", [])
 
-    emails = []
-    for msg in messages:
-        message = service.users().messages().get(
-            userId="me",
-            id=msg["id"],
-            format="metadata",
-            metadataHeaders=["Subject", "From", "Date"],
-        ).execute()
+    if not messages:
+        return {"count": 0, "emails": []}
 
-        headers = message["payload"]["headers"]
-        subject = next(
-            (h["value"] for h in headers if h["name"] == "Subject"),
-            "No Subject",
-        )
-        sender = next(
-            (h["value"] for h in headers if h["name"] == "From"),
-            "Unknown",
-        )
-        date = next(
-            (h["value"] for h in headers if h["name"] == "Date"),
-            "",
-        )
-        snippet = message.get("snippet", "")
+    emails = []
+
+    def callback(request_id, response, exception):
+        if exception:
+            print(f"Batch fetch error for {request_id}: {exception}")
+            return
+        
+        headers = response.get("payload", {}).get("headers", [])
+        subject = next((h["value"] for h in headers if h["name"] == "Subject"), "No Subject")
+        sender = next((h["value"] for h in headers if h["name"] == "From"), "Unknown")
+        date = next((h["value"] for h in headers if h["name"] == "Date"), "")
+        snippet = response.get("snippet", "")
 
         emails.append({
-            "id": msg["id"],
+            "id": response["id"],
             "subject": subject,
             "sender": sender,
             "date": date,
             "snippet": snippet,
         })
+
+    batch = service.new_batch_http_request(callback=callback)
+    for msg in messages[:50]:  # Limit to 50 for performance
+        batch.add(service.users().messages().get(
+            userId="me",
+            id=msg["id"],
+            format="metadata",
+            metadataHeaders=["Subject", "From", "Date"],
+        ))
+    batch.execute()
 
     return {"count": len(emails), "emails": emails}
 

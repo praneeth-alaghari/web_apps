@@ -10,6 +10,7 @@ load_dotenv()
 QDRANT_HOST = os.environ.get("QDRANT_HOST", "localhost")
 QDRANT_PORT = int(os.environ.get("QDRANT_PORT", "6333"))
 COLLECTION_NAME = "inbox_training"
+from services.categorizer import is_sensitive
 EMBEDDING_MODEL = os.environ.get("EMBEDDING_MODEL", "text-embedding-3-small")
 
 client = QdrantClient(host=QDRANT_HOST, port=QDRANT_PORT)
@@ -37,6 +38,8 @@ def get_embedding(text: str) -> list[float]:
 
 def store_training_action(email_id: str, action: str, sender: str, subject: str, snippet: str):
     content = f"Subject: {subject}\nSnippet: {snippet}"
+    if is_sensitive(content):
+        return  # Do not store sensitive data
     vector = get_embedding(content)
     
     payload = {
@@ -65,6 +68,8 @@ def get_preference_decision(subject: str, snippet: str):
     Returns: { "action": str, "confidence": float, "source": "MEM" }
     """
     content = f"Subject: {subject}\nSnippet: {snippet}"
+    if is_sensitive(content):
+        return {"action": "UNCERTAIN", "confidence": 0.0, "source": "SENSITIVE"}
     vector = get_embedding(content)
 
     results = client.query_points(
@@ -93,7 +98,60 @@ def get_preference_decision(subject: str, snippet: str):
             "confidence": max(keep_score, delete_score),
             "source": "MEM"
         }
+def get_embeddings_batch(texts: list[str]) -> list[list[float]]:
+    if not texts:
+        return []
+    response = openai_client.embeddings.create(
+        input=texts,
+        model=EMBEDDING_MODEL
+    )
+    return [d.embedding for d in response.data]
 
+def get_preference_decisions_batch(emails: list[dict]):
+    """Batch version of get_preference_decision to avoid sequential OpenAI calls."""
+    contents = []
+    indices = []
+    decisions = [None] * len(emails)
+
+    for i, email in enumerate(emails):
+        content = f"Subject: {email['subject']}\nSnippet: {email['snippet']}"
+        if is_sensitive(content):
+            decisions[i] = {"action": "UNCERTAIN", "confidence": 0.0, "source": "SENSITIVE"}
+        else:
+            contents.append(content)
+            indices.append(i)
+
+    if contents:
+        vectors = get_embeddings_batch(contents)
+        for i, vector in enumerate(vectors):
+            original_idx = indices[i]
+            results = client.query_points(
+                collection_name=COLLECTION_NAME,
+                query=vector,
+                limit=5
+            ).points
+
+            if not results:
+                decisions[original_idx] = {"action": "UNCERTAIN", "confidence": 0.0, "source": "NONE"}
+                continue
+
+            keep_count = sum(1 for r in results if r.payload.get("action") == "KEEP")
+            delete_count = sum(1 for r in results if r.payload.get("action") == "DELETE")
+            total = len(results)
+            keep_score = keep_count / total
+            delete_score = delete_count / total
+
+            if keep_score >= 0.7:
+                decisions[original_idx] = {"action": "KEEP", "confidence": keep_score, "source": "MEM"}
+            elif delete_score >= 0.7:
+                decisions[original_idx] = {"action": "DELETE", "confidence": delete_score, "source": "MEM"}
+            else:
+                decisions[original_idx] = {
+                    "action": "UNCERTAIN",
+                    "confidence": max(keep_score, delete_score),
+                    "source": "MEM"
+                }
+    return decisions
 
 init_db()
 

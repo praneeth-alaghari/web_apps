@@ -15,21 +15,30 @@ app.add_middleware(
 
 from services.db import get_preference_decision
 
+from services.categorizer import categorize_emails_batch
+from services.db import get_preference_decisions_batch
+
 @app.get("/api/emails")
 def get_emails():
     try:
         data = fetch_emails()
+        emails = data.get("emails", [])
+        if not emails:
+            return data
+            
+        # 1. Batch get learned preferences from Qdrant/OpenAI
+        decisions = get_preference_decisions_batch(emails)
         
-        # Add category and preference to each email
-        for email in data.get("emails", []):
-            # 1. Check Qdrant for learned preference
-            pref_data = get_preference_decision(email["subject"], email["snippet"])
+        # 2. Batch get LLM categories from OpenAI
+        categories = categorize_emails_batch(emails)
+        
+        # 3. Zip results back into email objects
+        for i, email in enumerate(emails):
+            pref_data = decisions[i]
             email["preference"] = pref_data["action"]
             email["confidence"] = pref_data["confidence"]
             email["pref_source"] = pref_data["source"]
-
-            # 2. Get LLM category
-            email["category"] = categorize_email(email)
+            email["category"] = categories[i]
             
         return data
     except Exception as e:
@@ -57,14 +66,17 @@ def get_training_emails(
     except Exception as e:
         return {"error": str(e)}
 
+from fastapi import BackgroundTasks
+
 @app.post("/api/training/action")
-def submit_training_action(payload: TrainingAction):
+def submit_training_action(payload: TrainingAction, background_tasks: BackgroundTasks):
     try:
         action = payload.action.upper()
 
         if action in ["KEEP", "DELETE"]:
-            # Store in Qdrant
-            store_training_action(
+            # Process AI training in the background
+            background_tasks.add_task(
+                store_training_action,
                 email_id=payload.email_id,
                 action=action,
                 sender=payload.sender,
@@ -73,9 +85,9 @@ def submit_training_action(payload: TrainingAction):
             )
 
         if action == "DELETE":
-            # Physically delete (trash) from Gmail
-            trash_email(payload.email_id)
+            # Process deletion in the background
+            background_tasks.add_task(trash_email, payload.email_id)
 
-        return {"status": "success", "action": action, "email_id": payload.email_id}
+        return {"status": "processing", "action": action, "email_id": payload.email_id}
     except Exception as e:
         return {"error": str(e)}
