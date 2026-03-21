@@ -25,7 +25,7 @@ def get_gmail_service():
 def fetch_emails():
     service = get_gmail_service()
     results = service.users().messages().list(
-        userId="me", q="newer_than:1d"
+        userId="me", q="newer_than:7d"
     ).execute()
     messages = results.get("messages", [])
 

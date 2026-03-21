@@ -31,13 +31,13 @@ def main():
     try:
         service = build('gmail', 'v1', credentials=creds)
         
-        print("Fetching emails from the last 24 hours...")
-        # newer_than:1d queries emails from the last 24 hours
-        results = service.users().messages().list(userId='me', q='newer_than:1d').execute()
+        print("Fetching emails from the last 7 days...")
+        # newer_than:7d queries emails from the last 7 days
+        results = service.users().messages().list(userId='me', q='newer_than:7d').execute()
         messages = results.get('messages', [])
         
         if not messages:
-            print('No messages found in the last 24 hours.')
+            print('No messages found in the last 7 days.')
         else:
             print(f"Found {len(messages)} messages.")
             for msg in messages:

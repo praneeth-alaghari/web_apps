@@ -28,10 +28,9 @@ def fetch_training_emails(page_token: str = None, per_page: int = 50):
     """Fetch recent emails (newer_than:30d) and shuffle them for training."""
     service = get_gmail_service()
 
-    # Gmail allows querying text directly
+    # Fetch up to 'per_page' results (no strict time limit)
     kwargs = {
         "userId": "me",
-        "q": "newer_than:30d",
         "maxResults": per_page
     }
     if page_token:
