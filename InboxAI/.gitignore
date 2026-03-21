@@ -1,0 +1,24 @@
+# Virtual environment
+venv/
+ENV/
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Databases/Storage
+.qdrant_storage/
+*.db
+*.sqlite3
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# VS Code / IDEs
+.vscode/
+.idea/
+.ipynb_checkpoints/
