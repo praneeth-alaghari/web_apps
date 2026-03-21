@@ -1,0 +1,27 @@
+services:
+  # The unified InboxAI Frontend & Backend inside a single Docker container
+  - type: web
+    name: inboxai
+    env: docker
+    plan: free # Can run on free tier, will sleep after inactivity
+    dockerfilePath: Dockerfile
+    dockerContext: .
+    envVars:
+      - key: QDRANT_HOST
+        value: qdrant-db # Connects to the Qdrant service listed below
+      - key: QDRANT_PORT
+        value: "6333"
+      # You need to manually add OPENAI_API_KEY and DEFAULT_GMAIL_TOKEN in the Render dashboard!
+
+  # Qdrant Database deployed as a Private Service
+  # NOTE: To persist database vectors, we must attach a Render Disk.
+  # This requires at least the 'starter' plan (starts at $7/mo + disk cost).
+  - type: pserv
+    name: qdrant-db
+    env: docker
+    plan: starter
+    image: qdrant/qdrant:latest
+    disk:
+      name: qdrant-data
+      mountPath: /qdrant/storage
+      sizeGB: 1

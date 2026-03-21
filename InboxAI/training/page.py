@@ -2,7 +2,7 @@ import os
 import streamlit as st
 import requests
 
-API_URL = "http://localhost:8001"
+API_URL = os.environ.get("API_URL", "http://localhost:8001")
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TRAINING_DIR = os.path.dirname(os.path.abspath(__file__))
 

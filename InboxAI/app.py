@@ -3,7 +3,7 @@ import streamlit as st
 import requests
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-API_URL = "http://localhost:8001"
+API_URL = os.environ.get("API_URL", "http://localhost:8001")
 
 def load_file(relative_path: str) -> str:
     with open(os.path.join(BASE_DIR, relative_path), encoding="utf-8") as f:
