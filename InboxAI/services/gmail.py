@@ -53,15 +53,18 @@ def fetch_emails():
             "snippet": snippet,
         })
 
-    batch = service.new_batch_http_request(callback=callback)
-    for msg in messages[:50]:  # Limit to 50 for performance
-        batch.add(service.users().messages().get(
-            userId="me",
-            id=msg["id"],
-            format="metadata",
-            metadataHeaders=["Subject", "From", "Date"],
-        ))
-    batch.execute()
+    # Chunking batch requests to prevent rate limit (429: Too many concurrent requests)
+    chunk_size = 10
+    for i in range(0, min(len(messages), 50), chunk_size):
+        batch = service.new_batch_http_request(callback=callback)
+        for msg in messages[i:i + chunk_size]:
+            batch.add(service.users().messages().get(
+                userId="me",
+                id=msg["id"],
+                format="metadata",
+                metadataHeaders=["Subject", "From", "Date"],
+            ))
+        batch.execute()
 
     return {"count": len(emails), "emails": emails}
 

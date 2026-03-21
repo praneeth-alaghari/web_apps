@@ -61,15 +61,18 @@ def fetch_training_emails(page_token: str = None, per_page: int = 50):
             "snippet": snippet,
         })
 
-    batch = service.new_batch_http_request(callback=callback)
-    for msg in messages:
-        batch.add(service.users().messages().get(
-            userId="me",
-            id=msg["id"],
-            format="metadata",
-            metadataHeaders=["Subject", "From", "Date"],
-        ))
-    batch.execute()
+    # Chunking batch requests to prevent rate limit (429: Too many concurrent requests)
+    chunk_size = 10
+    for i in range(0, len(messages), chunk_size):
+        batch = service.new_batch_http_request(callback=callback)
+        for msg in messages[i:i + chunk_size]:
+            batch.add(service.users().messages().get(
+                userId="me",
+                id=msg["id"],
+                format="metadata",
+                metadataHeaders=["Subject", "From", "Date"],
+            ))
+        batch.execute()
 
     # Shuffle them to mix the batch
     random.shuffle(emails)
