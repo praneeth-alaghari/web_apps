@@ -68,9 +68,20 @@ def migrate_collections():
             if not scroll_result:
                 break
                 
+            from qdrant_client.http.models import PointStruct
+
+            points_to_upsert = [
+                PointStruct(
+                    id=record.id,
+                    vector=record.vector,
+                    payload=record.payload
+                )
+                for record in scroll_result
+            ]
+                
             remote_client.upsert(
                 collection_name=collection_name,
-                points=scroll_result
+                points=points_to_upsert
             )
             
             total_migrated += len(scroll_result)
